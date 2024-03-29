@@ -1,0 +1,6 @@
+# Default ignored folder
+.idea/
+
+# Default ignored folder
+*.pyc
+*.tmp*
