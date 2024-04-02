@@ -1,7 +1,3 @@
-"""
-File by Samuel Kwiatkowski-Martin
-This file is our data class, which will contain and process columns and rows
-"""
 import random  # for our shuffling
 from Row import Row  # Imports the Row class from the Row file
 from util import csv, rnd  # Imports the csv function from util
@@ -415,6 +411,7 @@ class Data:
             :param above:
             """
             node = Node(data)
+            node.current = above
             if len(data.rows) > 2*(len(self.rows))**.5:
                 lefts, rights, node.left, node.right, node.C, node.cut, evals1 = self.half(data.rows, sortp, above)
                 nonlocal evals
