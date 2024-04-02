@@ -18,7 +18,7 @@ OPTIONS:
     -s --seed   random number seed              = 31210
     -S --Support coeffecient on best            = 2
     -t --todo   start up action                 = help
-
+    -z --zero   close to zero                   = 0
 """
 
 from the import THE, the, SLOTS
@@ -32,57 +32,116 @@ import util as l
 from Range import _ranges1
 import sys, random
 
-def FIND(node, depth = 1):
-    out = []
+def FIND(node, best_node = None, best_node_score = None, boolean = False): # dfd vector from global 
+    """
+    create a global node pointing to root (outside of find)
+    1. check if both left and right
+    2. calc scrore (3.6 and 3.7 eq)
+    if the score(node) =0 (how close to 0), boolean= false else true
+    3. if score is better (bigger) then global node scroe or global node score is not set yet:
+        the global node is now current node
+    4. recursive left and right 
+    5. check boolean from left and right
+    return 'or' of all 3 boolean
+    ##result in global node
+    Δ[vi] =xor btw left and right (cols)
+    hyperparameter: how close to 0 is 0
+    """
     if node.left and node.right:
-        good = l.entropy(node)
-        out.push(good)
+        score = calc_score(node)
+        if score > the.zero: # This takes care of return 'or' of all 3 boolean
+            boolean = True
+        if best_node_score is None or score > best_node_score:
+            best_node = node
+            best_node_score = score
+        boolean, best_node, best_node_score = FIND(node.lefts, best_node, best_node_score)        
+        boolean, best_node, best_node_score = FIND(node.rights, best_node, best_node_score)
+        return boolean, best_node, best_node_score
+
+def calc_score(node):
+    global entropy, dfd
+    nom = 0
+    denom = 0
+    delta = delta_v(node)
+    for i in range(len(node.here.cols.all)):
+        good_vi = entropy[i] * (1-dfd[i])
+        print(good_vi)
+        nom += delta[i] * good_vi
+        denom += delta[i]
+    
+    return nom / denom
+
+def calc_dfd(root):
+    """
+    dfd vector = [0] * number of columns
+    if root.left:
+        recursive_dfd(root.left, dfd_vector, 1)
+    if root.right:
+        recursive_dfd(root.right, dfd_vector, 1)
+    #dfd_vector should be global
+
+    normalize dfd_vector between 0 and 1
+    """
+    global dfd
+    dfd = [0] * len(root.here.cols.all)
+    max_depth = max(recursive_dfd(root.lefts, dfd, 1), recursive_dfd(root.rights, dfd, 1))
+    dfd = normalize(dfd, max_depth)
+    print(dfd, max_depth)
+    return dfd
+
+def recursive_dfd(node, dfd, depth):
+    """
+    1. check if both left and right
+    2. for every col check if left is diff than right
+    3. for the cols that are diff and dfd_vector[col] > depth || ==0, set the dfd_vector[col] = depth 
+    4. recursive left and recursive right with depth=depth+1
+    return nothing
+    """
+    if node.left and node.left:
+        left = node.left.cells
+        right = node.right.cells
+        for i in range(len(left)):
+            if left[i] != "?" and right[i] != "?":
+                if left[i] != right[i] and (depth < dfd[i] or dfd[i] == 0):
+                    dfd[i] = depth
+        return max(recursive_dfd(node.lefts, dfd, depth+1), recursive_dfd(node.rights, dfd, depth+1)) # returns the max depth
+    else:
+        return depth
         
 
-def bfs_tmp(tree, target):
-        queue = []
-        if tree != None:
-            queue = [[tree]]
-        # push the first path into the queue
-        while queue:
-            # get the first path from the queue
-            path = queue.pop(0)
-            path_id = [x.id for x in path]
-            # get the last node from the path
-            node = path[-1]
-            if node.east:
-                # path found
-                if target == node.score:
-                    return path_id, node
-                # enumerate all adjacent nodes, construct a new path and push it into the queue
-                neighbors = []
-                if node.west_node:
-                    neighbors.append(node.west_node)
-                if node.east_node:
-                    neighbors.append(node.east_node)
-                for adjacent in neighbors:
-                    new_path = list(path)
-                    new_path.append(adjacent)
-                    queue.append(new_path)
-        return None, None
+def normalize(dfd, max_depth):
+    return [d/max_depth for d in dfd]
 
 def BETTER(node, evalFn):
     left_score = evalFn(node.left)
     right_score = evalFn(node.right)
     return left_score > right_score
 
-def SNEAK(evalFn):
+def SNEAK(evalFn = None):
     d = Data("../data/auto93.csv")
-    tree = d.tree(True)
+    tree, eval = d.tree(True)
     print(tree)
+    """
+    1. get the entropies 
+    2. get the depth of 1st diff (dfd)
+    """
+    global entropy
+    entropy = calc_entropy(tree)
+    dfd = calc_dfd(tree)
+    
     while True:
-        subtree = FIND(tree)
+        subtree = FIND(tree) # parameters: entropy and dfd
         if not subtree:
             break
         if BETTER(subtree, evalFn):
-            subtree.right = None
+            subtree.right = None # TODO go on the root and remove all of the rows from the root that are in the subtree of wrost
+            # subtree.asked = 1 
         else:
             subtree.left = None
+        entropy = calc_entropy(tree)
+    """
+        2. recalculate the entropy based on root (clone the data with new rows) and the new entropy values should be passsed to FIND
+    """ 
     return tree
 
 def sway(data_item, enough):
@@ -97,6 +156,7 @@ def sway(data_item, enough):
             :param above:
             """
             node = Node(data)
+            node.current = above
             if len(data.rows) < enough:
                 return node
             else:
@@ -153,4 +213,4 @@ if __name__ == '__main__':
     doc = l.cli(doc)
     the._set(doc)
     random.seed(the.seed)  # set the random seed so that tests are repeatable...
-    run_sway()
+    SNEAK()
